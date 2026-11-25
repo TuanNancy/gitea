@@ -48,6 +48,11 @@ func SearchIssues(ctx *context.APIContext) {
 	//   in: query
 	//   description: Comma-separated list of label names. Fetch only issues that have any of these labels. Non existent labels are discarded.
 	//   type: string
+	// - name: label_mode
+	//   in: query
+	//   description: Whether issues must have all labels or any of them. Defaults to any.
+	//   type: string
+	//   enum: [all, any]
 	// - name: milestones
 	//   in: query
 	//   description: Comma-separated list of milestone names. Fetch only issues that have any of these milestones. Non existent milestones are discarded.
@@ -150,14 +155,19 @@ func SearchIssues(ctx *context.APIContext) {
 	keyword := ctx.FormTrim("q")
 	isPull := common.ParseIssueFilterTypeIsPull(ctx.FormString("type"))
 
-	var includedAnyLabels []int64
+	labelMode, ok := parseLabelMode(ctx, "any")
+	if !ok {
+		return
+	}
+
+	var includedLabelIDs []int64
 	{
 		labels := ctx.FormTrim("labels")
 		var includedLabelNames []string
 		if len(labels) > 0 {
 			includedLabelNames = strings.Split(labels, ",")
 		}
-		includedAnyLabels, err = issues_model.GetLabelIDsByNames(ctx, includedLabelNames)
+		includedLabelIDs, err = issues_model.GetLabelIDsByNames(ctx, includedLabelNames)
 		if err != nil {
 			ctx.APIErrorInternal(err)
 			return
@@ -185,14 +195,18 @@ func SearchIssues(ctx *context.APIContext) {
 			PageSize: limit,
 			Page:     ctx.FormInt("page"),
 		},
-		Keyword:             keyword,
-		RepoIDs:             repoIDs,
-		AllPublic:           allPublic,
-		IsPull:              isPull,
-		IsClosed:            isClosed,
-		IncludedAnyLabelIDs: includedAnyLabels,
-		MilestoneIDs:        includedMilestones,
-		SortBy:              issue_indexer.SortByCreatedDesc,
+		Keyword:      keyword,
+		RepoIDs:      repoIDs,
+		AllPublic:    allPublic,
+		IsPull:       isPull,
+		IsClosed:     isClosed,
+		MilestoneIDs: includedMilestones,
+		SortBy:       issue_indexer.SortByCreatedDesc,
+	}
+	if labelMode == "all" {
+		searchOpt.IncludedLabelIDs = includedLabelIDs
+	} else {
+		searchOpt.IncludedAnyLabelIDs = includedLabelIDs
 	}
 
 	if since != 0 {
@@ -272,6 +286,11 @@ func ListIssues(ctx *context.APIContext) {
 	//   in: query
 	//   description: comma separated list of label names. Fetch only issues that have all of these labels. Non-existent labels are discarded.
 	//   type: string
+	// - name: label_mode
+	//   in: query
+	//   description: whether issues must have all labels or any of them. Defaults to all.
+	//   type: string
+	//   enum: [all, any]
 	// - name: q
 	//   in: query
 	//   description: search string
@@ -330,6 +349,11 @@ func ListIssues(ctx *context.APIContext) {
 
 	isClosed := common.ParseIssueFilterStateIsClosed(ctx.FormString("state"))
 	keyword := ctx.FormTrim("q")
+
+	labelMode, ok := parseLabelMode(ctx, "all")
+	if !ok {
+		return
+	}
 
 	var labelIDs []int64
 	if labelsParam := ctx.FormTrim("labels"); labelsParam != "" {
@@ -408,6 +432,8 @@ func ListIssues(ctx *context.APIContext) {
 	}
 	if len(labelIDs) == 1 && labelIDs[0] == 0 {
 		searchOpt.NoLabelOnly = true
+	} else if labelMode == "any" {
+		searchOpt.IncludedAnyLabelIDs = labelIDs
 	} else {
 		for _, labelID := range labelIDs {
 			if labelID > 0 {
@@ -448,6 +474,18 @@ func ListIssues(ctx *context.APIContext) {
 	ctx.SetLinkHeader(total, listOptions.PageSize)
 	ctx.SetTotalCountHeader(total)
 	ctx.JSON(http.StatusOK, convert.ToAPIIssueList(ctx, ctx.Doer, issues))
+}
+
+func parseLabelMode(ctx *context.APIContext, defaultMode string) (string, bool) {
+	mode := ctx.FormString("label_mode")
+	if mode == "" {
+		return defaultMode, true
+	}
+	if mode != "all" && mode != "any" {
+		ctx.APIError(http.StatusBadRequest, "label_mode must be all or any")
+		return "", false
+	}
+	return mode, true
 }
 
 func getUserIDForFilter(ctx *context.APIContext, queryName string) int64 {

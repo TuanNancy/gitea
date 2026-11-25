@@ -5228,6 +5228,16 @@
             "in": "query"
           },
           {
+            "enum": [
+              "all",
+              "any"
+            ],
+            "type": "string",
+            "description": "Whether issues must have all labels or any of them. Defaults to any.",
+            "name": "label_mode",
+            "in": "query"
+          },
+          {
             "type": "string",
             "description": "Comma-separated list of milestone names. Fetch only issues that have any of these milestones. Non existent milestones are discarded.",
             "name": "milestones",
@@ -10786,6 +10796,16 @@
             "type": "string",
             "description": "comma separated list of label names. Fetch only issues that have all of these labels. Non-existent labels are discarded.",
             "name": "labels",
+            "in": "query"
+          },
+          {
+            "enum": [
+              "all",
+              "any"
+            ],
+            "type": "string",
+            "description": "whether issues must have all labels or any of them. Defaults to all.",
+            "name": "label_mode",
             "in": "query"
           },
           {

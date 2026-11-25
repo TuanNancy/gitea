@@ -145,6 +145,13 @@ func testAPIListIssues(t *testing.T) {
 	link.RawQuery = url.Values{"token": {token}, "state": {"all"}, "labels": {"label1,label2"}}.Encode()
 	resp = MakeRequest(t, NewRequest(t, "GET", link.String()), http.StatusOK)
 	assert.Empty(t, DecodeJSON(t, resp, []*api.Issue{})) // AND filter: no issue has both labels
+
+	link.RawQuery = url.Values{"token": {token}, "state": {"all"}, "labels": {"label1,label2"}, "label_mode": {"any"}}.Encode()
+	resp = MakeRequest(t, NewRequest(t, "GET", link.String()), http.StatusOK)
+	assert.Len(t, DecodeJSON(t, resp, []*api.Issue{}), 3)
+
+	link.RawQuery = url.Values{"token": {token}, "label_mode": {"invalid"}}.Encode()
+	MakeRequest(t, NewRequest(t, "GET", link.String()), http.StatusBadRequest)
 }
 
 func testAPIListIssuesPublicOnly(t *testing.T) {
@@ -510,6 +517,13 @@ func testAPISearchIssuesWithLabels(t *testing.T) {
 	resp = MakeRequest(t, req, http.StatusOK)
 	apiIssues = DecodeJSON(t, resp, []*api.Issue{})
 	assert.Len(t, apiIssues, 2)
+
+	query.Set("label_mode", "all")
+	link.RawQuery = query.Encode()
+	req = NewRequest(t, "GET", link.String()).AddTokenAuth(token)
+	resp = MakeRequest(t, req, http.StatusOK)
+	apiIssues = DecodeJSON(t, resp, []*api.Issue{})
+	assert.Len(t, apiIssues, 1)
 }
 
 func testAPIIssueContentVersion(t *testing.T) {
