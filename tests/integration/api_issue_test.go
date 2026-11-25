@@ -137,6 +137,14 @@ func testAPIListIssues(t *testing.T) {
 	if assert.Len(t, apiIssues, 1) {
 		assert.EqualValues(t, 1, apiIssues[0].ID)
 	}
+
+	link.RawQuery = url.Values{"token": {token}, "state": {"all"}, "labels": {"label1"}}.Encode()
+	resp = MakeRequest(t, NewRequest(t, "GET", link.String()), http.StatusOK)
+	assert.Len(t, DecodeJSON(t, resp, []*api.Issue{}), 2)
+
+	link.RawQuery = url.Values{"token": {token}, "state": {"all"}, "labels": {"label1,label2"}}.Encode()
+	resp = MakeRequest(t, NewRequest(t, "GET", link.String()), http.StatusOK)
+	assert.Empty(t, DecodeJSON(t, resp, []*api.Issue{})) // AND filter: no issue has both labels
 }
 
 func testAPIListIssuesPublicOnly(t *testing.T) {

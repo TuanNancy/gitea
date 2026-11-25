@@ -10784,7 +10784,7 @@
           },
           {
             "type": "string",
-            "description": "comma separated list of label names. Fetch only issues that have any of this label names. Non existent labels are discarded.",
+            "description": "comma separated list of label names. Fetch only issues that have all of these labels. Non-existent labels are discarded.",
             "name": "labels",
             "in": "query"
           },
